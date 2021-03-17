@@ -8,7 +8,9 @@ using namespace std;
 enum CMD
 {
 	CMD_LOGIN,
+	CMD_LOGIN_RESULT,
 	CMD_LOGOUT,
+	CMD_LOGOUT_RESULT,
 	CMD_ERROR
 };
 struct Dataheader
@@ -17,21 +19,43 @@ struct Dataheader
 	short cmd;//命令
 };
 //Datapackage
-struct Login
+struct Login:public Dataheader //继承
 {
+	Login()
+	{
+		dataLength = sizeof(Login);
+		cmd = CMD_LOGIN;
+	}
 	char userName[32];
 	char password[32];
 };
-struct Loginresult
+struct Loginresult :public Dataheader
 {
+	Loginresult()
+	{
+		dataLength = sizeof(Loginresult);
+		cmd = CMD_LOGIN_RESULT;
+		result = 0;
+	}
 	int result;
 };
-struct Logoutresult
+struct Logoutresult :public Dataheader
 {
+	Logoutresult()
+	{
+		dataLength = sizeof(Logoutresult);
+		cmd = CMD_LOGOUT_RESULT;
+		result = 0;
+	}
 	int result;
 };
-struct Logout
+struct Logout :public Dataheader
 {
+	Logout()
+	{
+		dataLength = sizeof(Logout);
+		cmd = CMD_LOGOUT;
+	}
 	char userName[32];
 };
 int main()
@@ -85,26 +109,26 @@ int main()
 			cout << "客户端已经退出，任务结束" << endl;
 			break;
 		}
-		cout << "收到命令:" << header.cmd<<",数据长度:"<<header.dataLength << endl;
+		
 		switch (header.cmd)
 		{
 		case CMD_LOGIN:
 		{
 			Login login = {};
-			recv(_cSock, (char*)&login, sizeof(Login), 0);
+			recv(_cSock, (char*)&login+sizeof(Dataheader), sizeof(Login)-sizeof(Dataheader), 0); //继承，父类的数据在前面，偏移包头数据大小，对读取位置进行偏移，因为head已经读取了
+			cout << "收到命令:CMD_LOGIN" << ",数据长度:" << login.dataLength<<",username:"<<login.userName<<",password:"<<login.password << endl;
 			//忽略判断用户密码是否正确
-			Loginresult ret = { 1 };
-			send(_cSock, (char*)&header, sizeof(Dataheader), 0);
+			Loginresult ret;
 			send(_cSock, (char*)&ret, sizeof(Loginresult), 0);
 		}
 		break;
 		case CMD_LOGOUT:
 		{
 			Logout logout = {};
-			recv(_cSock, (char*)&logout, sizeof(logout), 0);
+			recv(_cSock, (char*)&logout+ sizeof(Dataheader), sizeof(logout)- sizeof(Dataheader), 0);
+			cout << "收到命令:CMD_LOGOUT" << ",数据长度:" << logout.dataLength << ",username:" << logout.userName << endl;
 			//忽略判断用户密码是否正确
-			Logoutresult ret = { 1 };
-			send(_cSock, (char*)&header, sizeof(header), 0);
+			Logoutresult ret;
 			send(_cSock, (char*)&ret, sizeof(ret), 0);
 		}
 		break;
