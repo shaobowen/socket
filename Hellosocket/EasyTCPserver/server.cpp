@@ -5,10 +5,34 @@
 using namespace std;
 #pragma comment(lib,"ws2_32.lib")  //得添加个库文件，不然WSAStart会报错
 
-struct Datapackage
+enum CMD
 {
-	int age;
-	char name[32];
+	CMD_LOGIN,
+	CMD_LOGOUT,
+	CMD_ERROR
+};
+struct Dataheader
+{
+	short dataLength;//长度
+	short cmd;//命令
+};
+//Datapackage
+struct Login
+{
+	char userName[32];
+	char password[32];
+};
+struct Loginresult
+{
+	int result;
+};
+struct Logoutresult
+{
+	int result;
+};
+struct Logout
+{
+	char userName[32];
 };
 int main()
 {
@@ -45,7 +69,6 @@ int main()
 	int nAddrLen = sizeof(sockaddr_in);
 	SOCKET _cSock = INVALID_SOCKET;    //无效的socket地址
 	char msgBuf[] = "Hello,I am Server";
-	char _recvBuf[128] = {};
 	_cSock = accept(sock, (sockaddr*)&clientAddr, &nAddrLen);
 	if (INVALID_SOCKET == _cSock)
 	{
@@ -54,14 +77,45 @@ int main()
 	cout << "新客户端加入: socket=" << _cSock<<" IP=" << inet_ntoa(clientAddr.sin_addr) << endl; //需要定义个宏#define _WINSOCK_DEPRECATED_NO_WARNINGS
 	while (true)
 	{
+		Dataheader header{};
 		//接受客户端数据
-		int nLen = recv(_cSock, _recvBuf, 128, 0);//不论是客户还是服务器应用程序都用recv函数从TCP连接的另一端接收数据
+		int nLen = recv(_cSock, (char*)&header, sizeof(Dataheader), 0);//不论是客户还是服务器应用程序都用recv函数从TCP连接的另一端接收数据
 		if (nLen <= 0)
 		{
 			cout << "客户端已经退出，任务结束" << endl;
 			break;
 		}
-		cout << "收到命令:" << _recvBuf << endl;
+		cout << "收到命令:" << header.cmd<<",数据长度:"<<header.dataLength << endl;
+		switch (header.cmd)
+		{
+		case CMD_LOGIN:
+		{
+			Login login = {};
+			recv(_cSock, (char*)&login, sizeof(Login), 0);
+			//忽略判断用户密码是否正确
+			Loginresult ret = { 1 };
+			send(_cSock, (char*)&header, sizeof(Dataheader), 0);
+			send(_cSock, (char*)&ret, sizeof(Loginresult), 0);
+		}
+		break;
+		case CMD_LOGOUT:
+		{
+			Logout logout = {};
+			recv(_cSock, (char*)&logout, sizeof(logout), 0);
+			//忽略判断用户密码是否正确
+			Logoutresult ret = { 1 };
+			send(_cSock, (char*)&header, sizeof(header), 0);
+			send(_cSock, (char*)&ret, sizeof(ret), 0);
+		}
+		break;
+		default:
+		{
+			header.cmd = CMD_ERROR;
+			header.dataLength = 0;
+			send(_cSock, (char*)&header, sizeof(header), 0);
+		}
+		break;
+		}
 		//处理请求
 		/*if (0 == strcmp(_recvBuf, "getName"))
 		{
@@ -73,17 +127,6 @@ int main()
 			char msgBuf[] = "80.";
 			send(_cSock, msgBuf, strlen(msgBuf) + 1, 0);
 		}*/
-		if (0 == strcmp(_recvBuf, "getInfo"))
-		{
-			Datapackage dp = { 80,"销户" };
-			send(_cSock, (const char*)&dp, sizeof(Datapackage), 0); 
-		}
-		else
-		{
-			char msgBuf[] = "?????";
-			//向客户端发送一条数据
-			send(_cSock, msgBuf, strlen(msgBuf) + 1, 0);
-		}
 		
 	}
 	//关闭

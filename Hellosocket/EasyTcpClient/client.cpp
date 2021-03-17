@@ -4,10 +4,35 @@
 #include <iostream>
 using namespace std;
 #pragma comment(lib,"ws2_32.lib")  //得添加个库文件，不然WSAStart会报错
-struct Datapackage
+//Datapackage
+enum CMD
 {
-	int age;
-	char name[32];
+	CMD_LOGIN,
+	CMD_LOGOUT,
+	CMD_ERROR
+};
+struct Dataheader
+{
+	short dataLength;//长度
+	short cmd;//命令
+};
+//Datapackage
+struct Login
+{
+	char userName[32];
+	char password[32];
+};
+struct Loginresult
+{
+	int result;
+};
+struct Logoutresult
+{
+	int result;
+};
+struct Logout
+{
+	char userName[32];
 };
 int main()
 {
@@ -50,18 +75,36 @@ int main()
 			cout << "收到exit，任务结束" << endl;
 			break;
 		}
-		else
+		else if (0 == strcmp(cmdBuf, "login"))
 		{
 			//向服务端发送请求
-			send(sock, cmdBuf, strlen(cmdBuf) + 1, 0);
+			Login login = { "sbw","sbwsg" };
+			Dataheader dh = {sizeof(login),CMD_LOGIN};
+			send(sock, (const char*)&dh, sizeof(dh), 0); //包头
+			send(sock, (const char*)&login, sizeof(login), 0);//包体
+			//接收服务器返回的数据
+			Dataheader retheader = {};
+			Loginresult loginret = {};
+			recv(sock, (char*)&retheader, sizeof(retheader), 0);
+			recv(sock, (char*)&loginret, sizeof(loginret), 0);
+			cout << "LoginResult:" << loginret.result << endl;
 		}
-		//接收服务器信息 recv
-		char recvBuf[128] = {};//数据缓冲区,长度匹配
-		int nlen = recv(sock, recvBuf, 256, 0);
-		if (nlen > 0)
+		else if (0 == strcmp(cmdBuf, "logout"))
 		{
-			Datapackage* dp = (Datapackage*)recvBuf;
-			cout << "接收到数据:年龄="<<dp->age<<",姓名=" << dp->name << endl;
+			Logout logout = { "sbw" };
+			Dataheader dh = { sizeof(logout),CMD_LOGIN };
+			send(sock, (const char*)&dh, sizeof(dh), 0); //包头
+			send(sock, (const char*)&logout, sizeof(logout), 0);//包体
+			//接收服务器返回的数据
+			Dataheader retheader = {};
+			Logoutresult logoutret = {};
+			recv(sock, (char*)&retheader, sizeof(retheader), 0);
+			recv(sock, (char*)&logoutret, sizeof(logoutret), 0);
+			cout << "LogoutResult:" << logoutret.result << endl;
+		}
+		else
+		{
+			cout << "不支持的命令，重新输入" << endl;
 		}
 	}
 	//关闭
